@@ -44,6 +44,8 @@ import android.widget.Toast;
 
 import com.example.android.common.logger.Log;
 
+import java.lang.ref.WeakReference;
+
 /**
  * This fragment controls Bluetooth to communicate with other devices.
  */
@@ -64,12 +66,12 @@ public class BluetoothChatFragment extends Fragment {
     /**
      * Name of the connected device
      */
-    private String mConnectedDeviceName = null;
+    private static String mConnectedDeviceName = null;
 
     /**
      * Array adapter for the conversation thread
      */
-    private ArrayAdapter<String> mConversationArrayAdapter;
+    private static ArrayAdapter<String> mConversationArrayAdapter;
 
     /**
      * String buffer for outgoing messages
@@ -85,17 +87,17 @@ public class BluetoothChatFragment extends Fragment {
      * Member object for the chat services
      */
     private BluetoothChatService mChatService = null;
-
+    private static FragmentActivity activity;
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
+        activity = getActivity();
+        mHandler = new UiEventHandler(new WeakReference<FragmentActivity>(getActivity()));
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
-            FragmentActivity activity = getActivity();
             Toast.makeText(activity, "Bluetooth is not available", Toast.LENGTH_LONG).show();
             activity.finish();
         }
@@ -260,8 +262,8 @@ public class BluetoothChatFragment extends Fragment {
      *
      * @param subTitle status
      */
-    private void setStatus(CharSequence subTitle) {
-        FragmentActivity activity = getActivity();
+    private static void setStatus(CharSequence subTitle,FragmentActivity activity) {
+//        FragmentActivity activity = getActivity();
         if (null == activity) {
             return;
         }
@@ -275,23 +277,28 @@ public class BluetoothChatFragment extends Fragment {
     /**
      * The Handler that gets information back from the BluetoothChatService
      */
-    private final Handler mHandler = new Handler() {
+    private  Handler mHandler;
+    private static final class UiEventHandler extends  Handler{
+        private WeakReference<FragmentActivity>activityWeakReference;
+        public  UiEventHandler(WeakReference<FragmentActivity>fragmentActivityWeakReference){
+           activityWeakReference=fragmentActivityWeakReference;
+        }
         @Override
         public void handleMessage(Message msg) {
-            FragmentActivity activity = getActivity();
+            FragmentActivity activity = activityWeakReference.get();
             switch (msg.what) {
                 case Constants.MESSAGE_STATE_CHANGE:
                     switch (msg.arg1) {
                         case BluetoothChatService.STATE_CONNECTED:
-                            setStatus(getString(R.string.title_connected_to, mConnectedDeviceName));
+                            setStatus(activity.getString(R.string.title_connected_to, mConnectedDeviceName),activity);
                             mConversationArrayAdapter.clear();
                             break;
                         case BluetoothChatService.STATE_CONNECTING:
-                            setStatus(R.string.title_connecting);
+                            setStatus(activity.getString(R.string.title_connecting),activity);
                             break;
                         case BluetoothChatService.STATE_LISTEN:
                         case BluetoothChatService.STATE_NONE:
-                            setStatus(R.string.title_not_connected);
+                            setStatus(activity.getString(R.string.title_not_connected),activity);
                             break;
                     }
                     break;
@@ -323,7 +330,7 @@ public class BluetoothChatFragment extends Fragment {
                     break;
             }
         }
-    };
+    }
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
